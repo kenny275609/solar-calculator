@@ -708,6 +708,10 @@
         // 設備資料快取
         let solarPanelsData = [];
         let invertersData = [];
+        
+        // 載流量表快取（從資料庫載入）
+        let ampacityTable = null;
+        let ampacityTableLoaded = false;
 
         // 溫度修正係數 (環境溫度 vs 線材額定溫度 90°C)
         function getTempCorrectionFactor(Twire) {
@@ -721,18 +725,107 @@
             return 0.40;
         }
 
-        // 選擇最小線徑
-        function selectCableSize(requiredCurrent, Twire) {
+        // 從資料庫載入載流量表
+        async function loadAmpacityTable(wireType = 'metal', temperature = 60, wireStructure = '3') {
+            try {
+                let data = null;
+                
+                // 根據線材類型和溫度選擇正確的表
+                if (wireType === 'metal') {
+                    if (temperature === 60) {
+                        data = await supabase.getAmpacityMetal60C();
+                    } else if (temperature === 75) {
+                        data = await supabase.getAmpacityMetal75C();
+                    } else if (temperature === 90) {
+                        data = await supabase.getAmpacityMetal90C();
+                    }
+                } else if (wireType === 'pvc') {
+                    data = await supabase.getAmpacityPVC60C();
+                }
+                
+                if (data && data.length > 0) {
+                    // 轉換為易於使用的格式
+                    const table = {};
+                    data.forEach(row => {
+                        const area = parseFloat(row.nominal_area_mm2);
+                        // 根據線材結構選擇對應的載流量欄位
+                        let ampacity = null;
+                        if (wireStructure === '3') {
+                            ampacity = row.amp_3_be || row.amp_3 || null;
+                        } else if (wireStructure === '4') {
+                            ampacity = row.amp_4 || null;
+                        } else if (wireStructure === '5' || wireStructure === '6') {
+                            ampacity = row.amp_5_6 || null;
+                        } else if (wireStructure === '7' || wireStructure === '8' || wireStructure === '9') {
+                            ampacity = row.amp_7_9 || null;
+                        }
+                        
+                        if (ampacity !== null && area) {
+                            table[area] = parseFloat(ampacity);
+                        }
+                    });
+                    
+                    ampacityTable = table;
+                    ampacityTableLoaded = true;
+                    console.log('載流量表載入成功:', table);
+                    return table;
+                } else {
+                    console.warn('載流量表為空，使用預設值');
+                    ampacityTable = currentCapacityTable;
+                    return currentCapacityTable;
+                }
+            } catch (error) {
+                console.error('載入載流量表失敗，使用預設值:', error);
+                ampacityTable = currentCapacityTable;
+                return currentCapacityTable;
+            }
+        }
+
+        // 選擇最小線徑（改進版，支援從資料庫讀取）
+        async function selectCableSize(requiredCurrent, Twire, wireType = 'metal', wireStructure = '3') {
+            // 如果載流量表未載入，先載入
+            if (!ampacityTableLoaded || !ampacityTable) {
+                await loadAmpacityTable(wireType, 60, wireStructure);
+            }
+            
+            const table = ampacityTable || currentCapacityTable;
             const Ctemp = getTempCorrectionFactor(Twire);
             const Cbundling = 0.8; // 假設多條線捆紮
             const adjustedCurrent = requiredCurrent / Ctemp / Cbundling;
 
-            for (const [size, capacity] of Object.entries(currentCapacityTable)) {
-                if (capacity >= adjustedCurrent) {
-                    return parseFloat(size);
+            // 將表轉換為陣列並排序
+            const sortedSizes = Object.entries(table)
+                .map(([size, capacity]) => ({ size: parseFloat(size), capacity }))
+                .sort((a, b) => a.size - b.size);
+
+            // 找到第一個符合條件的線徑
+            for (const item of sortedSizes) {
+                if (item.capacity >= adjustedCurrent) {
+                    return item.size;
                 }
             }
-            return 240; // 最大標準尺寸
+            
+            // 如果沒有找到，返回最大尺寸
+            return sortedSizes[sortedSizes.length - 1]?.size || 240;
+        }
+        
+        // 同步版本的選擇線徑（用於向後兼容）
+        function selectCableSizeSync(requiredCurrent, Twire) {
+            const Ctemp = getTempCorrectionFactor(Twire);
+            const Cbundling = 0.8;
+            const adjustedCurrent = requiredCurrent / Ctemp / Cbundling;
+
+            const table = ampacityTable || currentCapacityTable;
+            const sortedSizes = Object.entries(table)
+                .map(([size, capacity]) => ({ size: parseFloat(size), capacity }))
+                .sort((a, b) => a.size - b.size);
+
+            for (const item of sortedSizes) {
+                if (item.capacity >= adjustedCurrent) {
+                    return item.size;
+                }
+            }
+            return sortedSizes[sortedSizes.length - 1]?.size || 240;
         }
 
         // 計算電壓降百分比
@@ -824,14 +917,16 @@
             // DC 側線徑
             const Istring = Isc * 1.25;
             const IDcMax = Iarray * 1.25;
-            const AdcMin = selectCableSize(IDcMax, Twire);
+            // 使用同步版本（因為在同步函數中）
+            const AdcMin = selectCableSizeSync(IDcMax, Twire);
             
             // DC 電壓降計算
             const VdcDrop = calculateVoltageDrop(Ldc, Impp * Nparallel, Varray, AdcMin, rho);
             
             // AC 側線徑
             const IAcMax = IinvRated * 1.25;
-            const AacMin = selectCableSize(IAcMax, Twire);
+            // 使用同步版本（因為在同步函數中）
+            const AacMin = selectCableSizeSync(IAcMax, Twire);
             
             // AC 電壓降計算
             const VacDrop = calculateVoltageDrop(Lac, IinvRated, Vgrid, AacMin, rho);
@@ -1435,6 +1530,8 @@
             try {
                 await loadSolarPanels();
                 await loadInverters();
+                // 預載入載流量表（使用預設值）
+                await loadAmpacityTable('metal', 60, '3');
                 console.log('設備資料初始化完成');
             } catch (error) {
                 console.error('初始化設備資料時發生錯誤:', error);
@@ -1482,7 +1579,16 @@
                 solarPanelsData.forEach(panel => {
                     const option = document.createElement('option');
                     option.value = panel.id;
-                    const displayName = panel.name + (panel.manufacturer ? ` (${panel.manufacturer})` : '');
+                    // 根據實際欄位名稱：manufacturer, series, model_number
+                    const manufacturer = panel.manufacturer || '';
+                    const series = panel.series || '';
+                    const modelNumber = panel.model_number || '';
+                    // 組合顯示名稱：製造商 + 系列 + 型號
+                    let displayName = '';
+                    if (manufacturer) displayName += manufacturer;
+                    if (series) displayName += (displayName ? ' ' : '') + series;
+                    if (modelNumber) displayName += (displayName ? ' ' : '') + modelNumber;
+                    if (!displayName) displayName = `ID: ${panel.id}`;
                     option.textContent = displayName;
                     option.setAttribute('data-panel', JSON.stringify(panel));
                     select.appendChild(option);
@@ -1529,8 +1635,9 @@
                 invertersData.forEach(inverter => {
                     const option = document.createElement('option');
                     option.value = inverter.id;
-                    const displayName = inverter.name + (inverter.manufacturer ? ` (${inverter.manufacturer})` : '');
-                    option.textContent = displayName;
+                    // 根據實際欄位名稱：model_name
+                    const modelName = inverter.model_name || `ID: ${inverter.id}`;
+                    option.textContent = modelName;
                     option.setAttribute('data-inverter', JSON.stringify(inverter));
                     select.appendChild(option);
                 });
@@ -1562,14 +1669,18 @@
             try {
                 const panel = JSON.parse(selectedOption.getAttribute('data-panel'));
                 
-                // 自動填入規格
-                document.getElementById('Pmod').value = panel.pmod || '';
-                document.getElementById('Vmpp').value = panel.vmpp || '';
-                document.getElementById('Impp').value = panel.impp || '';
-                document.getElementById('Voc').value = panel.voc || '';
-                document.getElementById('Isc').value = panel.isc || '';
-                document.getElementById('alphaVoc').value = panel.alpha_voc || '';
-                document.getElementById('alphaIsc').value = panel.alpha_isc || '';
+                // 根據實際欄位名稱自動填入規格
+                // solar_modules 表欄位：p_max, v_oc, i_sc, v_mp, i_mp, temp_coef_voc, temp_coef_isc
+                document.getElementById('Pmod').value = panel.p_max || panel.pmod || panel.power || '';
+                document.getElementById('Vmpp').value = panel.v_mp || panel.vmpp || panel.v_mpp || '';
+                document.getElementById('Impp').value = panel.i_mp || panel.impp || panel.i_mpp || '';
+                document.getElementById('Voc').value = panel.v_oc || panel.voc || panel.v_oc || '';
+                document.getElementById('Isc').value = panel.i_sc || panel.isc || panel.i_sc || '';
+                // 溫度係數：注意資料庫中是數值（如 -0.27），需要轉換為百分比（-0.27%）
+                const tempCoefVoc = panel.temp_coef_voc !== null && panel.temp_coef_voc !== undefined ? panel.temp_coef_voc : (panel.alpha_voc || '');
+                const tempCoefIsc = panel.temp_coef_isc !== null && panel.temp_coef_isc !== undefined ? panel.temp_coef_isc : (panel.alpha_isc || '');
+                document.getElementById('alphaVoc').value = tempCoefVoc;
+                document.getElementById('alphaIsc').value = tempCoefIsc;
                 
                 // 顯示成功訊息
                 showNotification('太陽能板規格已自動填入', 'success');
@@ -1591,13 +1702,41 @@
             try {
                 const inverter = JSON.parse(selectedOption.getAttribute('data-inverter'));
                 
-                // 自動填入規格
-                document.getElementById('VinvMax').value = inverter.vinv_max || '';
-                document.getElementById('VinvMpptMin').value = inverter.vinv_mppt_min || '';
-                document.getElementById('VinvMpptMax').value = inverter.vinv_mppt_max || '';
-                document.getElementById('IinvMax').value = inverter.iinv_max || '';
-                document.getElementById('PinvRated').value = inverter.pinv_rated || '';
-                document.getElementById('IinvRated').value = inverter.iinv_rated || '';
+                // 根據實際欄位名稱自動填入規格
+                // delta_inverters 表欄位：max_input_voltage_v, mppt_voltage_range_v, max_input_current_total_a, rated_output_power_kw, max_output_current_a
+                document.getElementById('VinvMax').value = inverter.max_input_voltage_v || inverter.vinv_max || '';
+                
+                // MPPT 電壓範圍可能是文字格式（如 "200-800"），需要解析
+                let mpptMin = '';
+                let mpptMax = '';
+                if (inverter.mppt_voltage_range_v) {
+                    // 嘗試解析範圍格式（如 "200-800" 或 "200V~800V"）
+                    const rangeMatch = inverter.mppt_voltage_range_v.toString().match(/(\d+(?:\.\d+)?)[\s\-~至到]+(\d+(?:\.\d+)?)/);
+                    if (rangeMatch) {
+                        mpptMin = rangeMatch[1];
+                        mpptMax = rangeMatch[2];
+                    } else {
+                        // 如果無法解析，嘗試其他欄位
+                        mpptMin = inverter.vinv_mppt_min || '';
+                        mpptMax = inverter.vinv_mppt_max || '';
+                    }
+                } else {
+                    mpptMin = inverter.vinv_mppt_min || '';
+                    mpptMax = inverter.vinv_mppt_max || '';
+                }
+                document.getElementById('VinvMpptMin').value = mpptMin;
+                document.getElementById('VinvMpptMax').value = mpptMax;
+                
+                // 最大輸入電流（可能是文字格式）
+                const maxInputCurrent = inverter.max_input_current_total_a || inverter.iinv_max || '';
+                document.getElementById('IinvMax').value = typeof maxInputCurrent === 'string' ? maxInputCurrent.replace(/[^\d.]/g, '') : maxInputCurrent;
+                
+                // 額定輸出功率（kW，需要保持為 kW）
+                document.getElementById('PinvRated').value = inverter.rated_output_power_kw || inverter.pinv_rated || '';
+                
+                // 最大輸出電流（可能是文字格式）
+                const maxOutputCurrent = inverter.max_output_current_a || inverter.iinv_rated || '';
+                document.getElementById('IinvRated').value = typeof maxOutputCurrent === 'string' ? maxOutputCurrent.replace(/[^\d.]/g, '') : maxOutputCurrent;
                 
                 // 顯示成功訊息
                 showNotification('逆變器規格已自動填入', 'success');
