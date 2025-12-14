@@ -1,0 +1,1675 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>太陽光電系統規劃計算工具</title>
+    <script src="supabase-config.js"></script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Microsoft JhengHei', 'Segoe UI', Arial, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 20px;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+            overflow: hidden;
+        }
+
+        .header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 30px;
+            text-align: center;
+        }
+
+        .header h1 {
+            font-size: 2.5em;
+            margin-bottom: 10px;
+        }
+
+        .header p {
+            font-size: 1.1em;
+            opacity: 0.9;
+        }
+
+        .content {
+            padding: 30px;
+        }
+
+        .section {
+            margin-bottom: 40px;
+            padding: 25px;
+            background: #f8f9fa;
+            border-radius: 15px;
+            border-left: 5px solid #667eea;
+        }
+
+        .section h2 {
+            color: #333;
+            margin-bottom: 20px;
+            font-size: 1.8em;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .form-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 20px;
+            margin-bottom: 20px;
+        }
+
+        .form-group {
+            display: flex;
+            flex-direction: column;
+        }
+
+        .form-group label {
+            font-weight: bold;
+            margin-bottom: 8px;
+            color: #555;
+            font-size: 0.95em;
+        }
+
+        .form-group input,
+        .form-group select {
+            padding: 12px;
+            border: 2px solid #ddd;
+            border-radius: 8px;
+            font-size: 1em;
+            transition: border-color 0.3s;
+        }
+
+        .form-group input:focus,
+        .form-group select:focus {
+            outline: none;
+            border-color: #667eea;
+        }
+
+        .form-group small {
+            color: #666;
+            margin-top: 5px;
+            font-size: 0.85em;
+        }
+
+        .btn {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 15px 40px;
+            border: none;
+            border-radius: 10px;
+            font-size: 1.1em;
+            font-weight: bold;
+            cursor: pointer;
+            transition: transform 0.2s, box-shadow 0.2s;
+            display: block;
+            margin: 30px auto;
+        }
+
+        .btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 10px 20px rgba(102, 126, 234, 0.4);
+        }
+
+        .btn:active {
+            transform: translateY(0);
+        }
+
+        .btn.secondary {
+            background: linear-gradient(135deg, #34d399 0%, #059669 100%);
+            margin: 0;
+        }
+
+        .actions {
+            display: flex;
+            justify-content: center;
+            gap: 15px;
+            flex-wrap: wrap;
+            margin: 10px 0 30px;
+        }
+
+        .results {
+            display: none;
+            margin-top: 30px;
+        }
+
+        .results.show {
+            display: block;
+        }
+
+        .result-card {
+            background: white;
+            padding: 20px;
+            border-radius: 10px;
+            margin-bottom: 15px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+
+        .result-card h3 {
+            color: #667eea;
+            margin-bottom: 15px;
+            font-size: 1.3em;
+            border-bottom: 2px solid #667eea;
+            padding-bottom: 10px;
+        }
+
+        .result-item {
+            display: flex;
+            justify-content: space-between;
+            padding: 10px 0;
+            border-bottom: 1px solid #eee;
+        }
+
+        .result-item:last-child {
+            border-bottom: none;
+        }
+
+        .result-label {
+            font-weight: bold;
+            color: #555;
+        }
+
+        .result-value {
+            color: #333;
+            font-weight: 600;
+        }
+
+        .formula {
+            background: #fff3cd;
+            padding: 15px;
+            border-radius: 8px;
+            margin: 15px 0;
+            font-family: 'Courier New', monospace;
+            font-size: 0.9em;
+            border-left: 4px solid #ffc107;
+        }
+
+        .warning {
+            background: #fff3cd;
+            color: #856404;
+            padding: 15px;
+            border-radius: 8px;
+            margin: 15px 0;
+            border-left: 4px solid #ffc107;
+        }
+
+        .error {
+            background: #f8d7da;
+            color: #721c24;
+            padding: 15px;
+            border-radius: 8px;
+            margin: 15px 0;
+            border-left: 4px solid #dc3545;
+        }
+
+        .success {
+            background: #d4edda;
+            color: #155724;
+            padding: 15px;
+            border-radius: 8px;
+            margin: 15px 0;
+            border-left: 4px solid #28a745;
+        }
+
+        /* 專案管理樣式 */
+        .project-management {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 20px;
+            padding: 15px;
+            background: #f8f9fa;
+            border-radius: 10px;
+        }
+
+        .project-actions {
+            display: flex;
+            gap: 10px;
+            flex-wrap: wrap;
+        }
+
+        .btn-small {
+            padding: 8px 16px;
+            font-size: 0.9em;
+            margin: 0;
+        }
+
+        .btn-info {
+            background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%);
+        }
+
+        .btn-success {
+            background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+        }
+
+        .btn-danger {
+            background: linear-gradient(135deg, #ef4444 0%, #dc2626 100%);
+        }
+
+        .btn-warning {
+            background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%);
+        }
+
+        /* 模態框樣式 */
+        .modal {
+            display: none;
+            position: fixed;
+            z-index: 1000;
+            left: 0;
+            top: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0,0,0,0.5);
+            overflow: auto;
+        }
+
+        .modal.show {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .modal-content {
+            background-color: white;
+            margin: auto;
+            padding: 30px;
+            border-radius: 15px;
+            width: 90%;
+            max-width: 600px;
+            max-height: 80vh;
+            overflow-y: auto;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+        }
+
+        .modal-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 20px;
+            padding-bottom: 15px;
+            border-bottom: 2px solid #eee;
+        }
+
+        .modal-header h2 {
+            margin: 0;
+            color: #667eea;
+        }
+
+        .close {
+            color: #aaa;
+            font-size: 28px;
+            font-weight: bold;
+            cursor: pointer;
+            line-height: 1;
+        }
+
+        .close:hover {
+            color: #000;
+        }
+
+        .project-list {
+            list-style: none;
+            padding: 0;
+        }
+
+        .project-item {
+            padding: 15px;
+            margin-bottom: 10px;
+            background: #f8f9fa;
+            border-radius: 8px;
+            border-left: 4px solid #667eea;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            transition: transform 0.2s;
+        }
+
+        .project-item:hover {
+            transform: translateX(5px);
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+
+        .project-info {
+            flex: 1;
+        }
+
+        .project-name {
+            font-weight: bold;
+            color: #333;
+            margin-bottom: 5px;
+        }
+
+        .project-meta {
+            font-size: 0.85em;
+            color: #666;
+        }
+
+        .project-item-actions {
+            display: flex;
+            gap: 8px;
+        }
+
+        .btn-icon {
+            padding: 6px 12px;
+            font-size: 0.85em;
+        }
+
+        .input-group {
+            margin-bottom: 15px;
+        }
+
+        .input-group label {
+            display: block;
+            margin-bottom: 5px;
+            font-weight: bold;
+            color: #555;
+        }
+
+        .input-group input {
+            width: 100%;
+            padding: 10px;
+            border: 2px solid #ddd;
+            border-radius: 8px;
+            font-size: 1em;
+        }
+
+        .input-group input:focus {
+            outline: none;
+            border-color: #667eea;
+        }
+
+        .loading {
+            text-align: center;
+            padding: 20px;
+            color: #667eea;
+        }
+
+        .empty-state {
+            text-align: center;
+            padding: 40px;
+            color: #999;
+        }
+
+        @media (max-width: 768px) {
+            .form-grid {
+                grid-template-columns: 1fr;
+            }
+            
+            .header h1 {
+                font-size: 1.8em;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>☀️ 太陽光電系統規劃計算工具</h1>
+            <p>計算太陽能板陣列、逆變器選型、線徑規劃與保護元件</p>
+        </div>
+
+        <div class="content">
+            <!-- 專案管理區域 -->
+            <div class="project-management">
+                <div>
+                    <h3 style="margin: 0; color: #333;">專案管理</h3>
+                    <small style="color: #666;">管理您的太陽光電規劃專案</small>
+                </div>
+                <div class="project-actions">
+                    <button type="button" class="btn btn-small btn-info" onclick="showProjectList()">📋 專案列表</button>
+                    <button type="button" class="btn btn-small btn-success" onclick="saveProject()">💾 保存專案</button>
+                    <button type="button" class="btn btn-small btn-warning" onclick="loadProject()">📂 載入專案</button>
+                    <button type="button" class="btn btn-small" onclick="newProject()">➕ 新建專案</button>
+                </div>
+            </div>
+
+            <form id="calculationForm">
+                <!-- 基本系統參數 -->
+                <div class="section">
+                    <h2>📌 基本系統參數</h2>
+                    <div class="form-grid">
+                        <div class="form-group">
+                            <label>總系統容量 P<sub>sys</sub> (kWp)</label>
+                            <input type="number" id="Psys" step="0.1" value="10" required>
+                            <small>例如: 10 kWp</small>
+                        </div>
+                        <div class="form-group">
+                            <label>電網電壓 V<sub>grid</sub> (V)</label>
+                            <select id="Vgrid" required>
+                                <option value="220">220 V (單相)</option>
+                                <option value="380">380 V (三相)</option>
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label>最低環境溫度 T<sub>min</sub> (°C)</label>
+                            <input type="number" id="Tmin" step="1" value="-10" required>
+                            <small>例如: -10°C</small>
+                        </div>
+                        <div class="form-group">
+                            <label>最高環境溫度 T<sub>max</sub> (°C)</label>
+                            <input type="number" id="Tmax" step="1" value="40" required>
+                            <small>例如: 40°C</small>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 太陽能板規格 -->
+                <div class="section">
+                    <h2>🔋 太陽能板規格</h2>
+                    <div class="form-grid">
+                        <div class="form-group" style="grid-column: 1 / -1;">
+                            <div style="display: flex; align-items: center; gap: 10px;">
+                                <div style="flex: 1;">
+                                    <label>選擇太陽能板型號 *</label>
+                                    <select id="solarPanelSelect" required onchange="loadSolarPanelSpecs()" style="width: 100%;">
+                                        <option value="">-- 請選擇太陽能板 --</option>
+                                    </select>
+                                </div>
+                                <button type="button" class="btn btn-small btn-info" onclick="loadSolarPanels()" style="margin-top: 20px; white-space: nowrap;">🔄 重新載入</button>
+                            </div>
+                            <small>從資料庫選擇太陽能板，或手動輸入下方規格</small>
+                        </div>
+                        <div class="form-group">
+                            <label>單片功率 P<sub>mod</sub> (W)</label>
+                            <input type="number" id="Pmod" step="1" value="400" required>
+                            <small>例如: 400 W</small>
+                        </div>
+                        <div class="form-group">
+                            <label>最大功率點電壓 V<sub>mpp</sub> (V)</label>
+                            <input type="number" id="Vmpp" step="0.1" value="41.0" required>
+                            <small>例如: 41.0 V</small>
+                        </div>
+                        <div class="form-group">
+                            <label>最大功率點電流 I<sub>mpp</sub> (A)</label>
+                            <input type="number" id="Impp" step="0.01" value="9.76" required>
+                            <small>例如: 9.76 A</small>
+                        </div>
+                        <div class="form-group">
+                            <label>開路電壓 V<sub>oc</sub> (V)</label>
+                            <input type="number" id="Voc" step="0.1" value="49.5" required>
+                            <small>例如: 49.5 V</small>
+                        </div>
+                        <div class="form-group">
+                            <label>短路電流 I<sub>sc</sub> (A)</label>
+                            <input type="number" id="Isc" step="0.01" value="10.35" required>
+                            <small>例如: 10.35 A</small>
+                        </div>
+                        <div class="form-group">
+                            <label>電壓溫度係數 α<sub>Voc</sub> (%/°C)</label>
+                            <input type="number" id="alphaVoc" step="0.001" value="-0.27" required>
+                            <small>通常為負值，例如: -0.27 %/°C</small>
+                        </div>
+                        <div class="form-group">
+                            <label>電流溫度係數 α<sub>Isc</sub> (%/°C)</label>
+                            <input type="number" id="alphaIsc" step="0.001" value="0.05" required>
+                            <small>通常為正值，例如: 0.05 %/°C</small>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 逆變器規格 -->
+                <div class="section">
+                    <h2>⚡ 逆變器規格</h2>
+                    <div class="form-grid">
+                        <div class="form-group" style="grid-column: 1 / -1;">
+                            <div style="display: flex; align-items: center; gap: 10px;">
+                                <div style="flex: 1;">
+                                    <label>選擇逆變器型號 *</label>
+                                    <select id="inverterSelect" required onchange="loadInverterSpecs()" style="width: 100%;">
+                                        <option value="">-- 請選擇逆變器 --</option>
+                                    </select>
+                                </div>
+                                <button type="button" class="btn btn-small btn-info" onclick="loadInverters()" style="margin-top: 20px; white-space: nowrap;">🔄 重新載入</button>
+                            </div>
+                            <small>從資料庫選擇逆變器，或手動輸入下方規格</small>
+                        </div>
+                        <div class="form-group">
+                            <label>最大輸入電壓 V<sub>inv,max</sub> (V)</label>
+                            <input type="number" id="VinvMax" step="1" value="1000" required>
+                            <small>例如: 1000 V</small>
+                        </div>
+                        <div class="form-group">
+                            <label>MPPT 最小電壓 V<sub>inv,mppt,min</sub> (V)</label>
+                            <input type="number" id="VinvMpptMin" step="1" value="200" required>
+                            <small>例如: 200 V</small>
+                        </div>
+                        <div class="form-group">
+                            <label>MPPT 最大電壓 V<sub>inv,mppt,max</sub> (V)</label>
+                            <input type="number" id="VinvMpptMax" step="1" value="800" required>
+                            <small>例如: 800 V</small>
+                        </div>
+                        <div class="form-group">
+                            <label>最大輸入電流 I<sub>inv,max</sub> (A)</label>
+                            <input type="number" id="IinvMax" step="0.1" value="22" required>
+                            <small>例如: 22 A</small>
+                        </div>
+                        <div class="form-group">
+                            <label>額定輸出功率 P<sub>inv,rated</sub> (kW)</label>
+                            <input type="number" id="PinvRated" step="0.1" value="10" required>
+                            <small>例如: 10 kW</small>
+                        </div>
+                        <div class="form-group">
+                            <label>額定輸出電流 I<sub>inv,rated</sub> (A)</label>
+                            <input type="number" id="IinvRated" step="0.1" value="45.5" required>
+                            <small>例如: 45.5 A (220V時)</small>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 線路參數 -->
+                <div class="section">
+                    <h2>🔌 線路參數</h2>
+                    <div class="form-grid">
+                        <div class="form-group">
+                            <label>DC 線路長度 L<sub>DC</sub> (m)</label>
+                            <input type="number" id="Ldc" step="1" value="50" required>
+                            <small>從太陽能板到逆變器的距離</small>
+                        </div>
+                        <div class="form-group">
+                            <label>AC 線路長度 L<sub>AC</sub> (m)</label>
+                            <input type="number" id="Lac" step="1" value="20" required>
+                            <small>從逆變器到電網的距離</small>
+                        </div>
+                        <div class="form-group">
+                            <label>線材周圍溫度 (°C)</label>
+                            <input type="number" id="Twire" step="1" value="40" required>
+                            <small>用於載流量修正</small>
+                        </div>
+                        <div class="form-group">
+                            <label>導體電阻率 ρ (Ω·mm²/m)</label>
+                            <input type="number" id="rho" step="0.0001" value="0.0172" required>
+                            <small>銅導體約 0.0172</small>
+                        </div>
+                    </div>
+                </div>
+
+                <button type="submit" class="btn">🚀 開始計算</button>
+            </form>
+
+            <!-- 計算結果 -->
+            <div id="results" class="results">
+                <div class="actions">
+                    <button type="button" class="btn secondary" onclick="exportPDF()">📄 匯出 PDF 報表</button>
+                </div>
+                <!-- 陣列規劃結果 -->
+                <div class="result-card">
+                    <h3>📊 太陽能板陣列規劃</h3>
+                    <div id="arrayResults"></div>
+                </div>
+
+                <!-- 逆變器規劃結果 -->
+                <div class="result-card">
+                    <h3>⚡ 逆變器規劃</h3>
+                    <div id="inverterResults"></div>
+                </div>
+
+                <!-- 線徑規劃結果 -->
+                <div class="result-card">
+                    <h3>🔌 線徑規劃</h3>
+                    <div id="cableResults"></div>
+                </div>
+
+                <!-- 保護元件規劃結果 -->
+                <div class="result-card">
+                    <h3>🛡️ 保護元件規劃</h3>
+                    <div id="protectionResults"></div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 專案列表模態框 -->
+    <div id="projectModal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2>📋 專案列表</h2>
+                <span class="close" onclick="closeProjectModal()">&times;</span>
+            </div>
+            <div id="projectListContent">
+                <div class="loading">載入中...</div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 保存專案模態框 -->
+    <div id="saveModal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2>💾 保存專案</h2>
+                <span class="close" onclick="closeSaveModal()">&times;</span>
+            </div>
+            <div class="input-group">
+                <label>專案名稱 *</label>
+                <input type="text" id="projectName" placeholder="輸入專案名稱" required>
+            </div>
+            <div class="input-group">
+                <label>專案描述</label>
+                <input type="text" id="projectDescription" placeholder="輸入專案描述（選填）">
+            </div>
+            <div style="display: flex; gap: 10px; justify-content: flex-end; margin-top: 20px;">
+                <button type="button" class="btn btn-small" onclick="closeSaveModal()">取消</button>
+                <button type="button" class="btn btn-small btn-success" onclick="confirmSaveProject()">保存</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- 載入專案模態框 -->
+    <div id="loadModal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2>📂 載入專案</h2>
+                <span class="close" onclick="closeLoadModal()">&times;</span>
+            </div>
+            <div id="loadProjectListContent">
+                <div class="loading">載入中...</div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // 載流量表 (銅導體，單芯，環境溫度 30°C，參考值)
+        const currentCapacityTable = {
+            1.5: 20,
+            2.5: 27,
+            4: 36,
+            6: 46,
+            10: 63,
+            16: 85,
+            25: 115,
+            35: 140,
+            50: 175,
+            70: 225,
+            95: 275,
+            120: 320,
+            150: 375,
+            185: 430,
+            240: 520
+        };
+
+        // 紀錄最新計算輸入與結果
+        let lastInputs = null;
+        let lastResults = null;
+        let currentProjectId = null; // 當前編輯的專案 ID
+        
+        // 設備資料快取
+        let solarPanelsData = [];
+        let invertersData = [];
+
+        // 溫度修正係數 (環境溫度 vs 線材額定溫度 90°C)
+        function getTempCorrectionFactor(Twire) {
+            if (Twire <= 30) return 1.0;
+            if (Twire <= 35) return 0.94;
+            if (Twire <= 40) return 0.87;
+            if (Twire <= 45) return 0.79;
+            if (Twire <= 50) return 0.71;
+            if (Twire <= 55) return 0.61;
+            if (Twire <= 60) return 0.50;
+            return 0.40;
+        }
+
+        // 選擇最小線徑
+        function selectCableSize(requiredCurrent, Twire) {
+            const Ctemp = getTempCorrectionFactor(Twire);
+            const Cbundling = 0.8; // 假設多條線捆紮
+            const adjustedCurrent = requiredCurrent / Ctemp / Cbundling;
+
+            for (const [size, capacity] of Object.entries(currentCapacityTable)) {
+                if (capacity >= adjustedCurrent) {
+                    return parseFloat(size);
+                }
+            }
+            return 240; // 最大標準尺寸
+        }
+
+        // 計算電壓降百分比
+        function calculateVoltageDrop(L, I, V, A, rho) {
+            return (2 * L * I * rho) / (A * V) * 100;
+        }
+
+        document.getElementById('calculationForm').addEventListener('submit', function(e) {
+            e.preventDefault();
+            
+            // 讀取輸入參數
+            const Psys = parseFloat(document.getElementById('Psys').value) * 1000; // 轉換為 W
+            const Vgrid = parseFloat(document.getElementById('Vgrid').value);
+            const Tmin = parseFloat(document.getElementById('Tmin').value);
+            const Tmax = parseFloat(document.getElementById('Tmax').value);
+            
+            const Pmod = parseFloat(document.getElementById('Pmod').value);
+            const Vmpp = parseFloat(document.getElementById('Vmpp').value);
+            const Impp = parseFloat(document.getElementById('Impp').value);
+            const Voc = parseFloat(document.getElementById('Voc').value);
+            const Isc = parseFloat(document.getElementById('Isc').value);
+            const alphaVoc = parseFloat(document.getElementById('alphaVoc').value) / 100; // 轉換為小數
+            const alphaIsc = parseFloat(document.getElementById('alphaIsc').value) / 100;
+            
+            const VinvMax = parseFloat(document.getElementById('VinvMax').value);
+            const VinvMpptMin = parseFloat(document.getElementById('VinvMpptMin').value);
+            const VinvMpptMax = parseFloat(document.getElementById('VinvMpptMax').value);
+            const IinvMax = parseFloat(document.getElementById('IinvMax').value);
+            const PinvRated = parseFloat(document.getElementById('PinvRated').value) * 1000; // 轉換為 W
+            const IinvRated = parseFloat(document.getElementById('IinvRated').value);
+            
+            const Ldc = parseFloat(document.getElementById('Ldc').value);
+            const Lac = parseFloat(document.getElementById('Lac').value);
+            const Twire = parseFloat(document.getElementById('Twire').value);
+            const rho = parseFloat(document.getElementById('rho').value);
+
+            // 獲取選中的設備 ID
+            const selectedSolarPanelId = document.getElementById('solarPanelSelect').value;
+            const selectedInverterId = document.getElementById('inverterSelect').value;
+            
+            lastInputs = {
+                Psys, Vgrid, Tmin, Tmax,
+                Pmod, Vmpp, Impp, Voc, Isc, alphaVoc, alphaIsc,
+                VinvMax, VinvMpptMin, VinvMpptMax, IinvMax, PinvRated, IinvRated,
+                Ldc, Lac, Twire, rho,
+                solarPanelId: selectedSolarPanelId || null,
+                inverterId: selectedInverterId || null
+            };
+
+            // ========== 1. 陣列規劃計算 ==========
+            
+            // 計算溫度修正後的電壓和電流
+            const VocTmin = Voc * (1 + alphaVoc * (Tmin - 25));
+            const VmppTmax = Vmpp * (1 + alphaVoc * (Tmax - 25));
+            const IscTmax = Isc * (1 + alphaIsc * (Tmax - 25));
+
+            // 計算最大和最小串聯片數
+            const Nmax = Math.floor(VinvMax / VocTmin);
+            const Nmin = Math.ceil(VinvMpptMin / VmppTmax);
+
+            if (Nmin > Nmax) {
+                alert('錯誤：無法找到合適的串聯片數！請檢查逆變器和太陽能板規格。');
+                return;
+            }
+
+            // 選擇串聯片數（選擇中間值）
+            const Nseries = Math.floor((Nmin + Nmax) / 2);
+
+            // 計算總片數和並聯串列數
+            const Ntotal = Math.ceil(Psys / Pmod);
+            const Nparallel = Math.ceil(Ntotal / Nseries);
+
+            // 計算陣列總電流
+            const Iarray = Nparallel * IscTmax;
+
+            // 檢查電流是否超過逆變器限制
+            if (Iarray > IinvMax) {
+                alert('警告：陣列總電流超過逆變器最大輸入電流！');
+            }
+
+            // 計算陣列電壓
+            const Varray = Nseries * Vmpp;
+
+            // ========== 2. 逆變器規劃 ==========
+            const inverterCheck = PinvRated >= Psys * 0.9; // 逆變器功率應至少為系統容量的90%
+
+            // ========== 3. 線徑計算 ==========
+            
+            // DC 側線徑
+            const Istring = Isc * 1.25;
+            const IDcMax = Iarray * 1.25;
+            const AdcMin = selectCableSize(IDcMax, Twire);
+            
+            // DC 電壓降計算
+            const VdcDrop = calculateVoltageDrop(Ldc, Impp * Nparallel, Varray, AdcMin, rho);
+            
+            // AC 側線徑
+            const IAcMax = IinvRated * 1.25;
+            const AacMin = selectCableSize(IAcMax, Twire);
+            
+            // AC 電壓降計算
+            const VacDrop = calculateVoltageDrop(Lac, IinvRated, Vgrid, AacMin, rho);
+
+            // ========== 4. 保護元件規劃 ==========
+            
+            // DC 保險絲
+            const Ifuse = Math.ceil(Isc * 1.25);
+            const Vfuse = Math.ceil(VocTmin * Nseries * 1.2); // 增加20%安全餘量
+            
+            // DC 斷路器
+            const IDcBreaker = Math.ceil(IDcMax);
+            const VDcBreaker = Math.ceil(VocTmin * Nseries * 1.2);
+            
+            // AC 斷路器
+            const IAcBreaker = Math.ceil(IAcMax);
+            const VAcBreaker = Math.ceil(Vgrid * 1.2);
+
+            // ========== 顯示結果 ==========
+            const calculatedResults = {
+                // 陣列規劃
+                Nseries, Nparallel, Ntotal,
+                VocTmin, VmppTmax, IscTmax,
+                Varray, Iarray,
+                Nmin, Nmax,
+                
+                // 逆變器
+                PinvRated, inverterCheck,
+                
+                // 線徑
+                IDcMax, AdcMin, VdcDrop, Ldc,
+                IAcMax, AacMin, VacDrop, Lac,
+                
+                // 保護元件
+                Ifuse, Vfuse,
+                IDcBreaker, VDcBreaker,
+                IAcBreaker, VAcBreaker
+            };
+
+            lastResults = calculatedResults;
+            displayResults(calculatedResults);
+        });
+
+        function displayResults(results) {
+            // 陣列規劃結果
+            let arrayHTML = `
+                <div class="result-item">
+                    <span class="result-label">總太陽能板片數</span>
+                    <span class="result-value">${results.Ntotal} 片</span>
+                </div>
+                <div class="result-item">
+                    <span class="result-label">串聯片數 (N<sub>series</sub>)</span>
+                    <span class="result-value">${results.Nseries} 片</span>
+                </div>
+                <div class="result-item">
+                    <span class="result-label">並聯串列數 (N<sub>parallel</sub>)</span>
+                    <span class="result-value">${results.Nparallel} 串</span>
+                </div>
+                <div class="result-item">
+                    <span class="result-label">陣列配置</span>
+                    <span class="result-value">${results.Nseries} 串 × ${results.Nparallel} 並</span>
+                </div>
+                <div class="formula">
+                    <strong>計算過程：</strong><br>
+                    最大串聯片數 N<sub>max</sub> = floor(${results.Nmax}) = ${results.Nmax} 片<br>
+                    最小串聯片數 N<sub>min</sub> = ceil(${results.Nmin}) = ${results.Nmin} 片<br>
+                    選擇串聯片數 = ${results.Nseries} 片 (介於 N<sub>min</sub> 和 N<sub>max</sub> 之間)
+                </div>
+                <div class="result-item">
+                    <span class="result-label">最低溫開路電壓 V<sub>oc,Tmin</sub></span>
+                    <span class="result-value">${results.VocTmin.toFixed(2)} V</span>
+                </div>
+                <div class="result-item">
+                    <span class="result-label">最高溫 MPPT 電壓 V<sub>mpp,Tmax</sub></span>
+                    <span class="result-value">${results.VmppTmax.toFixed(2)} V</span>
+                </div>
+                <div class="result-item">
+                    <span class="result-label">最高溫短路電流 I<sub>sc,Tmax</sub></span>
+                    <span class="result-value">${results.IscTmax.toFixed(2)} A</span>
+                </div>
+                <div class="result-item">
+                    <span class="result-label">陣列總電壓 (V<sub>array</sub>)</span>
+                    <span class="result-value">${results.Varray.toFixed(2)} V</span>
+                </div>
+                <div class="result-item">
+                    <span class="result-label">陣列總電流 (I<sub>array</sub>)</span>
+                    <span class="result-value">${results.Iarray.toFixed(2)} A</span>
+                </div>
+            `;
+
+            // 逆變器規劃結果
+            let inverterHTML = `
+                <div class="result-item">
+                    <span class="result-label">逆變器額定功率</span>
+                    <span class="result-value">${(results.PinvRated / 1000).toFixed(1)} kW</span>
+                </div>
+                <div class="result-item">
+                    <span class="result-label">系統容量</span>
+                    <span class="result-value">${(results.Ntotal * parseFloat(document.getElementById('Pmod').value) / 1000).toFixed(1)} kWp</span>
+                </div>
+                ${results.inverterCheck ? 
+                    '<div class="success">✓ 逆變器功率符合要求（≥ 系統容量的 90%）</div>' : 
+                    '<div class="warning">⚠ 建議檢查逆變器功率是否足夠</div>'}
+            `;
+
+            // 線徑規劃結果
+            let cableHTML = `
+                <h4 style="margin-top: 15px; color: #667eea;">直流 (DC) 側</h4>
+                <div class="result-item">
+                    <span class="result-label">最大電流 I<sub>DC,max</sub></span>
+                    <span class="result-value">${results.IDcMax.toFixed(2)} A</span>
+                </div>
+                <div class="result-item">
+                    <span class="result-label">建議線徑</span>
+                    <span class="result-value">${results.AdcMin} mm²</span>
+                </div>
+                <div class="result-item">
+                    <span class="result-label">線路長度</span>
+                    <span class="result-value">${results.Ldc} m</span>
+                </div>
+                <div class="result-item">
+                    <span class="result-label">電壓降</span>
+                    <span class="result-value">${results.VdcDrop.toFixed(2)} %</span>
+                </div>
+                ${results.VdcDrop <= 2 ? 
+                    '<div class="success">✓ DC 側電壓降符合規範（≤ 2%）</div>' : 
+                    '<div class="warning">⚠ DC 側電壓降超過建議值，考慮使用更大線徑</div>'}
+                
+                <h4 style="margin-top: 20px; color: #667eea;">交流 (AC) 側</h4>
+                <div class="result-item">
+                    <span class="result-label">最大電流 I<sub>AC,max</sub></span>
+                    <span class="result-value">${results.IAcMax.toFixed(2)} A</span>
+                </div>
+                <div class="result-item">
+                    <span class="result-label">建議線徑</span>
+                    <span class="result-value">${results.AacMin} mm²</span>
+                </div>
+                <div class="result-item">
+                    <span class="result-label">線路長度</span>
+                    <span class="result-value">${results.Lac} m</span>
+                </div>
+                <div class="result-item">
+                    <span class="result-label">電壓降</span>
+                    <span class="result-value">${results.VacDrop.toFixed(2)} %</span>
+                </div>
+                ${results.VacDrop <= 3 ? 
+                    '<div class="success">✓ AC 側電壓降符合規範（≤ 3%）</div>' : 
+                    '<div class="warning">⚠ AC 側電壓降超過建議值，考慮使用更大線徑</div>'}
+            `;
+
+            // 保護元件規劃結果
+            let protectionHTML = `
+                <h4 style="margin-top: 15px; color: #667eea;">直流 (DC) 側保護</h4>
+                <div class="result-item">
+                    <span class="result-label">串列保險絲額定電流</span>
+                    <span class="result-value">≥ ${results.Ifuse} A</span>
+                </div>
+                <div class="result-item">
+                    <span class="result-label">串列保險絲額定電壓</span>
+                    <span class="result-value">≥ ${results.Vfuse} V</span>
+                </div>
+                <div class="result-item">
+                    <span class="result-label">DC 斷路器額定電流</span>
+                    <span class="result-value">≥ ${results.IDcBreaker} A</span>
+                </div>
+                <div class="result-item">
+                    <span class="result-label">DC 斷路器額定電壓</span>
+                    <span class="result-value">≥ ${results.VDcBreaker} V</span>
+                </div>
+                
+                <h4 style="margin-top: 20px; color: #667eea;">交流 (AC) 側保護</h4>
+                <div class="result-item">
+                    <span class="result-label">AC 斷路器額定電流</span>
+                    <span class="result-value">≥ ${results.IAcBreaker} A</span>
+                </div>
+                <div class="result-item">
+                    <span class="result-label">AC 斷路器額定電壓</span>
+                    <span class="result-value">≥ ${results.VAcBreaker} V</span>
+                </div>
+            `;
+
+            document.getElementById('arrayResults').innerHTML = arrayHTML;
+            document.getElementById('inverterResults').innerHTML = inverterHTML;
+            document.getElementById('cableResults').innerHTML = cableHTML;
+            document.getElementById('protectionResults').innerHTML = protectionHTML;
+
+            // 顯示結果區域
+            document.getElementById('results').classList.add('show');
+            document.getElementById('results').scrollIntoView({ behavior: 'smooth', block: 'start' });
+        }
+
+        // 產生 PDF 報表（利用瀏覽器列印成 PDF）
+        function exportPDF() {
+            if (!lastResults || !lastInputs) {
+                alert('請先完成計算，再匯出 PDF 報表。');
+                return;
+            }
+
+            const now = new Date();
+            const formattedDate = now.toLocaleString();
+
+            const summaryHTML = `
+                <div class="result-card">
+                    <h3>📝 計算輸入摘要</h3>
+                    <div class="result-item"><span class="result-label">系統容量</span><span class="result-value">${(lastInputs.Psys / 1000).toFixed(2)} kWp</span></div>
+                    <div class="result-item"><span class="result-label">電網電壓</span><span class="result-value">${lastInputs.Vgrid} V</span></div>
+                    <div class="result-item"><span class="result-label">環境溫度範圍</span><span class="result-value">${lastInputs.Tmin} °C ~ ${lastInputs.Tmax} °C</span></div>
+                    <div class="result-item"><span class="result-label">模組功率</span><span class="result-value">${lastInputs.Pmod} W</span></div>
+                    <div class="result-item"><span class="result-label">模組 Vmpp / Impp</span><span class="result-value">${lastInputs.Vmpp} V / ${lastInputs.Impp} A</span></div>
+                    <div class="result-item"><span class="result-label">模組 Voc / Isc</span><span class="result-value">${lastInputs.Voc} V / ${lastInputs.Isc} A</span></div>
+                    <div class="result-item"><span class="result-label">溫度係數 αVoc / αIsc</span><span class="result-value">${(lastInputs.alphaVoc * 100).toFixed(2)}% / ${(lastInputs.alphaIsc * 100).toFixed(2)}%</span></div>
+                    <div class="result-item"><span class="result-label">逆變器 MPPT 範圍</span><span class="result-value">${lastInputs.VinvMpptMin} V ~ ${lastInputs.VinvMpptMax} V</span></div>
+                    <div class="result-item"><span class="result-label">逆變器最大輸入電流</span><span class="result-value">${lastInputs.IinvMax} A</span></div>
+                    <div class="result-item"><span class="result-label">逆變器額定功率 / 電流</span><span class="result-value">${(lastInputs.PinvRated / 1000).toFixed(2)} kW / ${lastInputs.IinvRated} A</span></div>
+                    <div class="result-item"><span class="result-label">DC / AC 線長</span><span class="result-value">${lastInputs.Ldc} m / ${lastInputs.Lac} m</span></div>
+                    <div class="result-item"><span class="result-label">線材周圍溫度</span><span class="result-value">${lastInputs.Twire} °C</span></div>
+                </div>
+            `;
+
+            const arrayHTML = document.getElementById('arrayResults').innerHTML;
+            const inverterHTML = document.getElementById('inverterResults').innerHTML;
+            const cableHTML = document.getElementById('cableResults').innerHTML;
+            const protectionHTML = document.getElementById('protectionResults').innerHTML;
+
+            const printWindow = window.open('', '', 'width=900,height=1200');
+            printWindow.document.write(`
+                <html>
+                <head>
+                    <title>太陽光電系統規劃報表</title>
+                    <style>
+                        body { font-family: 'Microsoft JhengHei', Arial, sans-serif; padding: 20px; color: #222; }
+                        h1 { color: #4c51bf; margin-bottom: 5px; }
+                        h2 { color: #4c51bf; margin-top: 30px; margin-bottom: 10px; }
+                        .meta { color: #555; margin-bottom: 20px; }
+                        .result-card { border: 1px solid #e5e7eb; border-radius: 10px; padding: 15px; margin-bottom: 15px; }
+                        .result-card h3 { margin: 0 0 10px; color: #4c51bf; }
+                        .result-item { display: flex; justify-content: space-between; border-bottom: 1px solid #f1f1f1; padding: 6px 0; font-size: 14px; }
+                        .result-item:last-child { border-bottom: none; }
+                        .result-label { font-weight: 600; }
+                        .result-value { font-weight: 600; color: #111; }
+                        .success { background: #e6ffed; border-left: 4px solid #16a34a; padding: 10px; margin: 8px 0; color: #166534; }
+                        .warning { background: #fff4e5; border-left: 4px solid #f59e0b; padding: 10px; margin: 8px 0; color: #92400e; }
+                        .formula { background: #fef9c3; border-left: 4px solid #f59e0b; padding: 10px; margin: 8px 0; font-family: 'Courier New', monospace; font-size: 13px; }
+                        @media print { .result-card { page-break-inside: avoid; } }
+                    </style>
+                </head>
+                <body>
+                    <h1>太陽光電系統規劃報表</h1>
+                    <div class="meta">生成時間：${formattedDate}</div>
+                    ${summaryHTML}
+                    <h2>📊 太陽能板陣列規劃</h2>
+                    <div class="result-card">${arrayHTML}</div>
+                    <h2>⚡ 逆變器規劃</h2>
+                    <div class="result-card">${inverterHTML}</div>
+                    <h2>🔌 線徑規劃</h2>
+                    <div class="result-card">${cableHTML}</div>
+                    <h2>🛡️ 保護元件規劃</h2>
+                    <div class="result-card">${protectionHTML}</div>
+                </body>
+                </html>
+            `);
+            printWindow.document.close();
+            printWindow.focus();
+            setTimeout(() => {
+                printWindow.print();
+                printWindow.close();
+            }, 300);
+        }
+
+        // ========== 專案管理功能 ==========
+
+        // 顯示專案列表
+        async function showProjectList() {
+            const modal = document.getElementById('projectModal');
+            const content = document.getElementById('projectListContent');
+            modal.classList.add('show');
+            
+            content.innerHTML = '<div class="loading">載入中...</div>';
+            
+            try {
+                const projects = await supabase.getProjects();
+                
+                if (!projects || projects.length === 0) {
+                    content.innerHTML = '<div class="empty-state">📭 尚無專案，請先創建一個專案</div>';
+                    return;
+                }
+                
+                let html = '<ul class="project-list">';
+                projects.forEach(project => {
+                    const createdDate = new Date(project.created_at).toLocaleString('zh-TW');
+                    const updatedDate = new Date(project.updated_at).toLocaleString('zh-TW');
+                    html += `
+                        <li class="project-item">
+                            <div class="project-info">
+                                <div class="project-name">${escapeHtml(project.name || '未命名專案')}</div>
+                                <div class="project-meta">
+                                    創建時間: ${createdDate} | 更新時間: ${updatedDate}
+                                    ${project.description ? '<br>描述: ' + escapeHtml(project.description) : ''}
+                                </div>
+                            </div>
+                            <div class="project-item-actions">
+                                <button class="btn btn-small btn-info btn-icon" onclick="loadProjectById(${project.id})">載入</button>
+                                <button class="btn btn-small btn-danger btn-icon" onclick="deleteProjectById(${project.id}, '${escapeHtml(project.name || '未命名專案')}')">刪除</button>
+                            </div>
+                        </li>
+                    `;
+                });
+                html += '</ul>';
+                content.innerHTML = html;
+            } catch (error) {
+                content.innerHTML = `<div class="error">載入專案列表失敗: ${error.message}</div>`;
+                console.error('Error loading projects:', error);
+            }
+        }
+
+        // 關閉專案列表模態框
+        function closeProjectModal() {
+            document.getElementById('projectModal').classList.remove('show');
+        }
+
+        // 顯示保存專案模態框
+        function saveProject() {
+            if (!lastInputs || !lastResults) {
+                alert('請先完成計算，再保存專案。');
+                return;
+            }
+            
+            const modal = document.getElementById('saveModal');
+            const nameInput = document.getElementById('projectName');
+            const descInput = document.getElementById('projectDescription');
+            
+            // 如果有當前專案，預填名稱
+            if (currentProjectId) {
+                // 可以從資料庫載入當前專案名稱
+            }
+            
+            nameInput.value = '';
+            descInput.value = '';
+            modal.classList.add('show');
+        }
+
+        // 確認保存專案
+        async function confirmSaveProject() {
+            const name = document.getElementById('projectName').value.trim();
+            const description = document.getElementById('projectDescription').value.trim();
+            
+            if (!name) {
+                alert('請輸入專案名稱');
+                return;
+            }
+            
+            if (!lastInputs || !lastResults) {
+                alert('沒有可保存的資料');
+                return;
+            }
+            
+            const projectData = {
+                name: name,
+                description: description || null,
+                inputs: lastInputs,
+                results: lastResults,
+                updated_at: new Date().toISOString()
+            };
+            
+            try {
+                let result;
+                if (currentProjectId) {
+                    // 更新現有專案
+                    result = await supabase.updateProject(currentProjectId, projectData);
+                    alert('專案已更新！');
+                } else {
+                    // 創建新專案
+                    projectData.created_at = new Date().toISOString();
+                    result = await supabase.createProject(projectData);
+                    if (result && result.length > 0) {
+                        currentProjectId = result[0].id;
+                    }
+                    alert('專案已保存！');
+                }
+                closeSaveModal();
+            } catch (error) {
+                alert('保存專案失敗: ' + error.message);
+                console.error('Error saving project:', error);
+            }
+        }
+
+        // 關閉保存模態框
+        function closeSaveModal() {
+            document.getElementById('saveModal').classList.remove('show');
+        }
+
+        // 顯示載入專案模態框
+        async function loadProject() {
+            const modal = document.getElementById('loadModal');
+            const content = document.getElementById('loadProjectListContent');
+            modal.classList.add('show');
+            
+            content.innerHTML = '<div class="loading">載入中...</div>';
+            
+            try {
+                const projects = await supabase.getProjects();
+                
+                if (!projects || projects.length === 0) {
+                    content.innerHTML = '<div class="empty-state">📭 尚無專案可載入</div>';
+                    return;
+                }
+                
+                let html = '<ul class="project-list">';
+                projects.forEach(project => {
+                    const createdDate = new Date(project.created_at).toLocaleString('zh-TW');
+                    html += `
+                        <li class="project-item">
+                            <div class="project-info">
+                                <div class="project-name">${escapeHtml(project.name || '未命名專案')}</div>
+                                <div class="project-meta">創建時間: ${createdDate}</div>
+                            </div>
+                            <div class="project-item-actions">
+                                <button class="btn btn-small btn-info btn-icon" onclick="loadProjectById(${project.id})">載入</button>
+                            </div>
+                        </li>
+                    `;
+                });
+                html += '</ul>';
+                content.innerHTML = html;
+            } catch (error) {
+                content.innerHTML = `<div class="error">載入專案列表失敗: ${error.message}</div>`;
+                console.error('Error loading projects:', error);
+            }
+        }
+
+        // 根據 ID 載入專案
+        async function loadProjectById(projectId) {
+            try {
+                const projects = await supabase.getProject(projectId);
+                
+                if (!projects || projects.length === 0) {
+                    alert('專案不存在');
+                    return;
+                }
+                
+                const project = projects[0];
+                
+                if (!project.inputs || !project.results) {
+                    alert('專案資料不完整');
+                    return;
+                }
+                
+                // 載入輸入參數
+                const inputs = project.inputs;
+                document.getElementById('Psys').value = inputs.Psys / 1000;
+                document.getElementById('Vgrid').value = inputs.Vgrid;
+                document.getElementById('Tmin').value = inputs.Tmin;
+                document.getElementById('Tmax').value = inputs.Tmax;
+                document.getElementById('Pmod').value = inputs.Pmod;
+                document.getElementById('Vmpp').value = inputs.Vmpp;
+                document.getElementById('Impp').value = inputs.Impp;
+                document.getElementById('Voc').value = inputs.Voc;
+                document.getElementById('Isc').value = inputs.Isc;
+                document.getElementById('alphaVoc').value = inputs.alphaVoc * 100;
+                document.getElementById('alphaIsc').value = inputs.alphaIsc * 100;
+                document.getElementById('VinvMax').value = inputs.VinvMax;
+                document.getElementById('VinvMpptMin').value = inputs.VinvMpptMin;
+                document.getElementById('VinvMpptMax').value = inputs.VinvMpptMax;
+                document.getElementById('IinvMax').value = inputs.IinvMax;
+                document.getElementById('PinvRated').value = inputs.PinvRated / 1000;
+                document.getElementById('IinvRated').value = inputs.IinvRated;
+                document.getElementById('Ldc').value = inputs.Ldc;
+                document.getElementById('Lac').value = inputs.Lac;
+                document.getElementById('Twire').value = inputs.Twire;
+                document.getElementById('rho').value = inputs.rho;
+                
+                // 恢復選中的設備（如果有的話）
+                if (inputs.solarPanelId) {
+                    document.getElementById('solarPanelSelect').value = inputs.solarPanelId;
+                } else {
+                    document.getElementById('solarPanelSelect').value = '';
+                }
+                
+                if (inputs.inverterId) {
+                    document.getElementById('inverterSelect').value = inputs.inverterId;
+                } else {
+                    document.getElementById('inverterSelect').value = '';
+                }
+                
+                // 保存當前狀態
+                lastInputs = inputs;
+                lastResults = project.results;
+                currentProjectId = projectId;
+                
+                // 顯示結果
+                displayResults(project.results);
+                
+                // 關閉模態框
+                closeLoadModal();
+                closeProjectModal();
+                
+                alert('專案已載入！');
+                
+                // 滾動到表單頂部
+                document.querySelector('.content').scrollIntoView({ behavior: 'smooth', block: 'start' });
+            } catch (error) {
+                alert('載入專案失敗: ' + error.message);
+                console.error('Error loading project:', error);
+            }
+        }
+
+        // 關閉載入模態框
+        function closeLoadModal() {
+            document.getElementById('loadModal').classList.remove('show');
+        }
+
+        // 刪除專案
+        async function deleteProjectById(projectId, projectName) {
+            if (!confirm(`確定要刪除專案「${projectName}」嗎？此操作無法復原。`)) {
+                return;
+            }
+            
+            try {
+                await supabase.deleteProject(projectId);
+                
+                if (currentProjectId === projectId) {
+                    currentProjectId = null;
+                }
+                
+                alert('專案已刪除！');
+                
+                // 重新載入專案列表
+                showProjectList();
+            } catch (error) {
+                alert('刪除專案失敗: ' + error.message);
+                console.error('Error deleting project:', error);
+            }
+        }
+
+        // 新建專案
+        function newProject() {
+            if (confirm('確定要創建新專案嗎？當前未保存的資料將丟失。')) {
+                // 重置表單
+                document.getElementById('calculationForm').reset();
+                
+                // 重置狀態
+                lastInputs = null;
+                lastResults = null;
+                currentProjectId = null;
+                
+                // 隱藏結果
+                document.getElementById('results').classList.remove('show');
+                
+                // 滾動到頂部
+                document.querySelector('.content').scrollIntoView({ behavior: 'smooth', block: 'start' });
+            }
+        }
+
+        // HTML 轉義函數
+        function escapeHtml(text) {
+            const div = document.createElement('div');
+            div.textContent = text;
+            return div.innerHTML;
+        }
+
+        // 點擊模態框外部關閉
+        window.onclick = function(event) {
+            const projectModal = document.getElementById('projectModal');
+            const saveModal = document.getElementById('saveModal');
+            const loadModal = document.getElementById('loadModal');
+            
+            if (event.target === projectModal) {
+                closeProjectModal();
+            }
+            if (event.target === saveModal) {
+                closeSaveModal();
+            }
+            if (event.target === loadModal) {
+                closeLoadModal();
+            }
+        }
+
+        // ========== 設備資料載入功能 ==========
+
+        // 頁面載入時初始化設備資料
+        async function initializeEquipmentData() {
+            console.log('初始化設備資料...');
+            
+            // 檢查 supabase 是否已載入
+            if (typeof supabase === 'undefined') {
+                console.error('supabase 未定義，請確認 supabase-config.js 已正確載入');
+                setTimeout(initializeEquipmentData, 500); // 500ms 後重試
+                return;
+            }
+            
+            // 檢查必要的 DOM 元素是否存在
+            const solarSelect = document.getElementById('solarPanelSelect');
+            const inverterSelect = document.getElementById('inverterSelect');
+            
+            if (!solarSelect || !inverterSelect) {
+                console.warn('DOM 元素尚未準備好，稍後重試...');
+                setTimeout(initializeEquipmentData, 500);
+                return;
+            }
+            
+            try {
+                await loadSolarPanels();
+                await loadInverters();
+                console.log('設備資料初始化完成');
+            } catch (error) {
+                console.error('初始化設備資料時發生錯誤:', error);
+            }
+        }
+
+        // 確保在 DOM 載入完成後執行
+        function startInitialization() {
+            if (document.readyState === 'loading') {
+                document.addEventListener('DOMContentLoaded', function() {
+                    setTimeout(initializeEquipmentData, 100); // 給一點時間讓其他腳本載入
+                });
+            } else {
+                // DOM 已經載入完成，稍等一下確保所有腳本都載入
+                setTimeout(initializeEquipmentData, 100);
+            }
+        }
+        
+        // 開始初始化
+        startInitialization();
+
+        // 載入太陽能板資料
+        async function loadSolarPanels() {
+            try {
+                console.log('開始載入太陽能板資料...');
+                const panels = await supabase.getSolarPanels();
+                console.log('太陽能板資料:', panels);
+                
+                solarPanelsData = panels || [];
+                
+                const select = document.getElementById('solarPanelSelect');
+                if (!select) {
+                    console.error('找不到 solarPanelSelect 元素');
+                    return;
+                }
+                
+                select.innerHTML = '<option value="">-- 請選擇太陽能板 --</option>';
+                
+                if (!panels || panels.length === 0) {
+                    console.warn('資料庫中沒有太陽能板資料');
+                    select.innerHTML += '<option value="" disabled>⚠️ 資料庫中尚無太陽能板資料（請執行 supabase-equipment-schema.sql）</option>';
+                    return;
+                }
+                
+                solarPanelsData.forEach(panel => {
+                    const option = document.createElement('option');
+                    option.value = panel.id;
+                    const displayName = panel.name + (panel.manufacturer ? ` (${panel.manufacturer})` : '');
+                    option.textContent = displayName;
+                    option.setAttribute('data-panel', JSON.stringify(panel));
+                    select.appendChild(option);
+                });
+                
+                console.log(`成功載入 ${solarPanelsData.length} 筆太陽能板資料`);
+            } catch (error) {
+                console.error('載入太陽能板資料失敗:', error);
+                console.error('錯誤詳情:', {
+                    message: error.message,
+                    stack: error.stack
+                });
+                const select = document.getElementById('solarPanelSelect');
+                if (select) {
+                    select.innerHTML = '<option value="">❌ 載入失敗，請檢查資料庫連線或手動輸入規格</option>';
+                }
+                showNotification('載入太陽能板資料失敗: ' + error.message, 'error');
+            }
+        }
+
+        // 載入逆變器資料
+        async function loadInverters() {
+            try {
+                console.log('開始載入逆變器資料...');
+                const inverters = await supabase.getInverters();
+                console.log('逆變器資料:', inverters);
+                
+                invertersData = inverters || [];
+                
+                const select = document.getElementById('inverterSelect');
+                if (!select) {
+                    console.error('找不到 inverterSelect 元素');
+                    return;
+                }
+                
+                select.innerHTML = '<option value="">-- 請選擇逆變器 --</option>';
+                
+                if (!inverters || inverters.length === 0) {
+                    console.warn('資料庫中沒有逆變器資料');
+                    select.innerHTML += '<option value="" disabled>⚠️ 資料庫中尚無逆變器資料（請執行 supabase-equipment-schema.sql）</option>';
+                    return;
+                }
+                
+                invertersData.forEach(inverter => {
+                    const option = document.createElement('option');
+                    option.value = inverter.id;
+                    const displayName = inverter.name + (inverter.manufacturer ? ` (${inverter.manufacturer})` : '');
+                    option.textContent = displayName;
+                    option.setAttribute('data-inverter', JSON.stringify(inverter));
+                    select.appendChild(option);
+                });
+                
+                console.log(`成功載入 ${invertersData.length} 筆逆變器資料`);
+            } catch (error) {
+                console.error('載入逆變器資料失敗:', error);
+                console.error('錯誤詳情:', {
+                    message: error.message,
+                    stack: error.stack
+                });
+                const select = document.getElementById('inverterSelect');
+                if (select) {
+                    select.innerHTML = '<option value="">❌ 載入失敗，請檢查資料庫連線或手動輸入規格</option>';
+                }
+                showNotification('載入逆變器資料失敗: ' + error.message, 'error');
+            }
+        }
+
+        // 載入選中的太陽能板規格
+        function loadSolarPanelSpecs() {
+            const select = document.getElementById('solarPanelSelect');
+            const selectedOption = select.options[select.selectedIndex];
+            
+            if (!selectedOption || !selectedOption.value) {
+                return;
+            }
+            
+            try {
+                const panel = JSON.parse(selectedOption.getAttribute('data-panel'));
+                
+                // 自動填入規格
+                document.getElementById('Pmod').value = panel.pmod || '';
+                document.getElementById('Vmpp').value = panel.vmpp || '';
+                document.getElementById('Impp').value = panel.impp || '';
+                document.getElementById('Voc').value = panel.voc || '';
+                document.getElementById('Isc').value = panel.isc || '';
+                document.getElementById('alphaVoc').value = panel.alpha_voc || '';
+                document.getElementById('alphaIsc').value = panel.alpha_isc || '';
+                
+                // 顯示成功訊息
+                showNotification('太陽能板規格已自動填入', 'success');
+            } catch (error) {
+                console.error('載入太陽能板規格失敗:', error);
+                showNotification('載入規格失敗，請手動輸入', 'error');
+            }
+        }
+
+        // 載入選中的逆變器規格
+        function loadInverterSpecs() {
+            const select = document.getElementById('inverterSelect');
+            const selectedOption = select.options[select.selectedIndex];
+            
+            if (!selectedOption || !selectedOption.value) {
+                return;
+            }
+            
+            try {
+                const inverter = JSON.parse(selectedOption.getAttribute('data-inverter'));
+                
+                // 自動填入規格
+                document.getElementById('VinvMax').value = inverter.vinv_max || '';
+                document.getElementById('VinvMpptMin').value = inverter.vinv_mppt_min || '';
+                document.getElementById('VinvMpptMax').value = inverter.vinv_mppt_max || '';
+                document.getElementById('IinvMax').value = inverter.iinv_max || '';
+                document.getElementById('PinvRated').value = inverter.pinv_rated || '';
+                document.getElementById('IinvRated').value = inverter.iinv_rated || '';
+                
+                // 顯示成功訊息
+                showNotification('逆變器規格已自動填入', 'success');
+            } catch (error) {
+                console.error('載入逆變器規格失敗:', error);
+                showNotification('載入規格失敗，請手動輸入', 'error');
+            }
+        }
+
+        // 顯示通知訊息
+        function showNotification(message, type = 'info') {
+            // 創建通知元素
+            const notification = document.createElement('div');
+            notification.className = `notification ${type}`;
+            notification.style.cssText = `
+                position: fixed;
+                top: 20px;
+                right: 20px;
+                padding: 15px 20px;
+                border-radius: 8px;
+                color: white;
+                font-weight: bold;
+                z-index: 10000;
+                box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+                animation: slideIn 0.3s ease-out;
+            `;
+            
+            if (type === 'success') {
+                notification.style.background = 'linear-gradient(135deg, #10b981 0%, #059669 100%)';
+            } else if (type === 'error') {
+                notification.style.background = 'linear-gradient(135deg, #ef4444 0%, #dc2626 100%)';
+            } else {
+                notification.style.background = 'linear-gradient(135deg, #3b82f6 0%, #2563eb 100%)';
+            }
+            
+            notification.textContent = message;
+            document.body.appendChild(notification);
+            
+            // 3秒後自動移除
+            setTimeout(() => {
+                notification.style.animation = 'slideOut 0.3s ease-out';
+                setTimeout(() => {
+                    document.body.removeChild(notification);
+                }, 300);
+            }, 3000);
+        }
+
+        // 添加動畫樣式
+        const style = document.createElement('style');
+        style.textContent = `
+            @keyframes slideIn {
+                from {
+                    transform: translateX(100%);
+                    opacity: 0;
+                }
+                to {
+                    transform: translateX(0);
+                    opacity: 1;
+                }
+            }
+            @keyframes slideOut {
+                from {
+                    transform: translateX(0);
+                    opacity: 1;
+                }
+                to {
+                    transform: translateX(100%);
+                    opacity: 0;
+                }
+            }
+        `;
+        document.head.appendChild(style);
+    </script>
+</body>
+</html>

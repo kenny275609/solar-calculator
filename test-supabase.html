@@ -1,0 +1,247 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Supabase 連線測試</title>
+    <style>
+        body {
+            font-family: 'Microsoft JhengHei', Arial, sans-serif;
+            max-width: 1200px;
+            margin: 20px auto;
+            padding: 20px;
+            background: #f5f5f5;
+        }
+        .test-section {
+            background: white;
+            padding: 20px;
+            margin-bottom: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        .test-section h2 {
+            color: #667eea;
+            margin-top: 0;
+        }
+        button {
+            background: #667eea;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 5px;
+            cursor: pointer;
+            margin: 5px;
+        }
+        button:hover {
+            background: #5568d3;
+        }
+        .result {
+            margin-top: 10px;
+            padding: 10px;
+            border-radius: 5px;
+            white-space: pre-wrap;
+            font-family: monospace;
+            font-size: 12px;
+            max-height: 400px;
+            overflow-y: auto;
+        }
+        .success {
+            background: #d4edda;
+            border: 1px solid #c3e6cb;
+            color: #155724;
+        }
+        .error {
+            background: #f8d7da;
+            border: 1px solid #f5c6cb;
+            color: #721c24;
+        }
+        .info {
+            background: #d1ecf1;
+            border: 1px solid #bee5eb;
+            color: #0c5460;
+        }
+    </style>
+    <script src="supabase-config.js"></script>
+</head>
+<body>
+    <h1>🔍 Supabase 連線測試工具</h1>
+    
+    <div class="test-section">
+        <h2>1. 測試基本連線</h2>
+        <button onclick="testConnection()">測試 Supabase 連線</button>
+        <div id="connectionResult" class="result"></div>
+    </div>
+
+    <div class="test-section">
+        <h2>2. 測試資料表是否存在</h2>
+        <button onclick="testTables()">檢查資料表</button>
+        <div id="tablesResult" class="result"></div>
+    </div>
+
+    <div class="test-section">
+        <h2>3. 測試太陽能板資料</h2>
+        <button onclick="testSolarPanels()">載入太陽能板</button>
+        <div id="solarResult" class="result"></div>
+    </div>
+
+    <div class="test-section">
+        <h2>4. 測試逆變器資料</h2>
+        <button onclick="testInverters()">載入逆變器</button>
+        <div id="inverterResult" class="result"></div>
+    </div>
+
+    <div class="test-section">
+        <h2>5. 直接 API 測試（不使用封裝）</h2>
+        <button onclick="testDirectAPI('solar_panels')">直接測試 solar_panels</button>
+        <button onclick="testDirectAPI('inverters')">直接測試 inverters</button>
+        <div id="directResult" class="result"></div>
+    </div>
+
+    <script>
+        const SUPABASE_URL = 'https://ntlmothsjvhdvcykcvex.supabase.co';
+        const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im50bG1vdGhzanZoZHZjeWtjdmV4Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjU1NzEwMzIsImV4cCI6MjA4MTE0NzAzMn0.Fk2zZB7myLQnwx4Hiw678ggQYZ8ZaZDAW7UHH8eobO0';
+
+        async function testConnection() {
+            const resultDiv = document.getElementById('connectionResult');
+            resultDiv.className = 'result info';
+            resultDiv.textContent = '測試中...';
+            
+            try {
+                const response = await fetch(`${SUPABASE_URL}/rest/v1/`, {
+                    headers: {
+                        'apikey': SUPABASE_KEY,
+                        'Authorization': `Bearer ${SUPABASE_KEY}`
+                    }
+                });
+                
+                resultDiv.className = 'result success';
+                resultDiv.textContent = `✅ 連線成功！\n狀態碼: ${response.status}\n狀態文字: ${response.statusText}\nURL: ${SUPABASE_URL}`;
+            } catch (error) {
+                resultDiv.className = 'result error';
+                resultDiv.textContent = `❌ 連線失敗！\n錯誤: ${error.message}\n\n請檢查：\n1. 網路連線\n2. Supabase URL 是否正確\n3. 是否有 CORS 問題`;
+            }
+        }
+
+        async function testTables() {
+            const resultDiv = document.getElementById('tablesResult');
+            resultDiv.className = 'result info';
+            resultDiv.textContent = '檢查中...';
+            
+            try {
+                // 嘗試查詢 information_schema（這可能需要特殊權限）
+                // 改為直接測試表是否存在
+                const tests = [
+                    { name: 'solar_panels', url: `${SUPABASE_URL}/rest/v1/solar_panels?limit=1` },
+                    { name: 'inverters', url: `${SUPABASE_URL}/rest/v1/inverters?limit=1` },
+                    { name: 'projects', url: `${SUPABASE_URL}/rest/v1/projects?limit=1` }
+                ];
+                
+                let results = '資料表檢查結果：\n\n';
+                
+                for (const test of tests) {
+                    try {
+                        const response = await fetch(test.url, {
+                            headers: {
+                                'apikey': SUPABASE_KEY,
+                                'Authorization': `Bearer ${SUPABASE_KEY}`,
+                                'Prefer': 'return=representation'
+                            }
+                        });
+                        
+                        if (response.ok) {
+                            results += `✅ ${test.name}: 存在 (狀態: ${response.status})\n`;
+                        } else if (response.status === 404) {
+                            results += `❌ ${test.name}: 不存在 (404)\n`;
+                        } else {
+                            const errorText = await response.text();
+                            results += `⚠️ ${test.name}: 錯誤 (${response.status})\n   ${errorText.substring(0, 200)}\n`;
+                        }
+                    } catch (error) {
+                        results += `❌ ${test.name}: 請求失敗\n   錯誤: ${error.message}\n`;
+                    }
+                }
+                
+                resultDiv.className = 'result success';
+                resultDiv.textContent = results;
+            } catch (error) {
+                resultDiv.className = 'result error';
+                resultDiv.textContent = `❌ 檢查失敗！\n錯誤: ${error.message}`;
+            }
+        }
+
+        async function testSolarPanels() {
+            const resultDiv = document.getElementById('solarResult');
+            resultDiv.className = 'result info';
+            resultDiv.textContent = '載入中...';
+            
+            try {
+                const panels = await supabase.getSolarPanels();
+                resultDiv.className = 'result success';
+                resultDiv.textContent = `✅ 成功載入！\n\n資料筆數: ${panels ? panels.length : 0}\n\n資料內容:\n${JSON.stringify(panels, null, 2)}`;
+            } catch (error) {
+                resultDiv.className = 'result error';
+                resultDiv.textContent = `❌ 載入失敗！\n\n錯誤訊息: ${error.message}\n\n可能原因：\n1. 資料表不存在\n2. RLS 政策未設定\n3. 欄位名稱不匹配\n\n詳細錯誤:\n${error.stack || error}`;
+            }
+        }
+
+        async function testInverters() {
+            const resultDiv = document.getElementById('inverterResult');
+            resultDiv.className = 'result info';
+            resultDiv.textContent = '載入中...';
+            
+            try {
+                const inverters = await supabase.getInverters();
+                resultDiv.className = 'result success';
+                resultDiv.textContent = `✅ 成功載入！\n\n資料筆數: ${inverters ? inverters.length : 0}\n\n資料內容:\n${JSON.stringify(inverters, null, 2)}`;
+            } catch (error) {
+                resultDiv.className = 'result error';
+                resultDiv.textContent = `❌ 載入失敗！\n\n錯誤訊息: ${error.message}\n\n可能原因：\n1. 資料表不存在\n2. RLS 政策未設定\n3. 欄位名稱不匹配\n\n詳細錯誤:\n${error.stack || error}`;
+            }
+        }
+
+        async function testDirectAPI(tableName) {
+            const resultDiv = document.getElementById('directResult');
+            resultDiv.className = 'result info';
+            resultDiv.textContent = `測試 ${tableName}...`;
+            
+            try {
+                const url = `${SUPABASE_URL}/rest/v1/${tableName}?limit=5&order=id.asc`;
+                console.log('直接 API 請求:', url);
+                
+                const response = await fetch(url, {
+                    headers: {
+                        'apikey': SUPABASE_KEY,
+                        'Authorization': `Bearer ${SUPABASE_KEY}`,
+                        'Content-Type': 'application/json',
+                        'Prefer': 'return=representation'
+                    }
+                });
+                
+                console.log('回應狀態:', response.status, response.statusText);
+                
+                if (!response.ok) {
+                    const errorText = await response.text();
+                    resultDiv.className = 'result error';
+                    resultDiv.textContent = `❌ 請求失敗！\n\n狀態碼: ${response.status}\n狀態文字: ${response.statusText}\n\n回應內容:\n${errorText}`;
+                    return;
+                }
+                
+                const data = await response.json();
+                resultDiv.className = 'result success';
+                resultDiv.textContent = `✅ 成功！\n\n狀態碼: ${response.status}\n資料筆數: ${data ? data.length : 0}\n\n資料內容:\n${JSON.stringify(data, null, 2)}`;
+            } catch (error) {
+                resultDiv.className = 'result error';
+                resultDiv.textContent = `❌ 請求失敗！\n\n錯誤: ${error.message}\n\n詳細:\n${error.stack || error}`;
+            }
+        }
+
+        // 頁面載入時自動測試連線
+        window.addEventListener('load', () => {
+            console.log('測試頁面已載入');
+            console.log('Supabase URL:', SUPABASE_URL);
+            console.log('Supabase Key:', SUPABASE_KEY.substring(0, 20) + '...');
+        });
+    </script>
+</body>
+</html>
+

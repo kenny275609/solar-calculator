@@ -1,0 +1,395 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Supabase 連線測試</title>
+    <style>
+        body {
+            font-family: 'Microsoft JhengHei', Arial, sans-serif;
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+            background: #f5f5f5;
+        }
+        .container {
+            background: white;
+            padding: 30px;
+            border-radius: 10px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        h1 {
+            color: #333;
+            border-bottom: 3px solid #667eea;
+            padding-bottom: 10px;
+        }
+        .test-section {
+            margin: 20px 0;
+            padding: 20px;
+            background: #f8f9fa;
+            border-radius: 8px;
+            border-left: 4px solid #667eea;
+        }
+        .test-section h2 {
+            margin-top: 0;
+            color: #667eea;
+        }
+        button {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 12px 24px;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 16px;
+            margin: 5px;
+        }
+        button:hover {
+            opacity: 0.9;
+        }
+        .result {
+            margin-top: 15px;
+            padding: 15px;
+            border-radius: 8px;
+            white-space: pre-wrap;
+            font-family: 'Courier New', monospace;
+            font-size: 14px;
+            max-height: 400px;
+            overflow-y: auto;
+        }
+        .success {
+            background: #d4edda;
+            color: #155724;
+            border: 1px solid #c3e6cb;
+        }
+        .error {
+            background: #f8d7da;
+            color: #721c24;
+            border: 1px solid #f5c6cb;
+        }
+        .info {
+            background: #d1ecf1;
+            color: #0c5460;
+            border: 1px solid #bee5eb;
+        }
+        .loading {
+            color: #667eea;
+        }
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 10px;
+        }
+        th, td {
+            padding: 10px;
+            text-align: left;
+            border-bottom: 1px solid #ddd;
+        }
+        th {
+            background: #667eea;
+            color: white;
+        }
+        tr:hover {
+            background: #f5f5f5;
+        }
+    </style>
+    <script src="supabase-config.js"></script>
+</head>
+<body>
+    <div class="container">
+        <h1>🔍 Supabase 連線診斷工具</h1>
+        
+        <div class="test-section">
+            <h2>1. 基本連線測試</h2>
+            <button onclick="testBasicConnection()">測試基本連線</button>
+            <div id="basicResult" class="result" style="display:none;"></div>
+        </div>
+
+        <div class="test-section">
+            <h2>2. 檢查資料表是否存在</h2>
+            <button onclick="checkTables()">檢查資料表</button>
+            <div id="tablesResult" class="result" style="display:none;"></div>
+        </div>
+
+        <div class="test-section">
+            <h2>3. 測試太陽能板資料讀取</h2>
+            <button onclick="testSolarPanels()">測試 solar_panels 表</button>
+            <div id="solarResult" class="result" style="display:none;"></div>
+        </div>
+
+        <div class="test-section">
+            <h2>4. 測試逆變器資料讀取</h2>
+            <button onclick="testInverters()">測試 inverters 表</button>
+            <div id="inverterResult" class="result" style="display:none;"></div>
+        </div>
+
+        <div class="test-section">
+            <h2>5. 完整診斷（執行所有測試）</h2>
+            <button onclick="runFullDiagnostic()">執行完整診斷</button>
+            <div id="fullResult" class="result" style="display:none;"></div>
+        </div>
+
+        <div class="test-section">
+            <h2>6. 直接 API 測試（不使用封裝）</h2>
+            <button onclick="testDirectAPI()">直接測試 API</button>
+            <div id="directResult" class="result" style="display:none;"></div>
+        </div>
+    </div>
+
+    <script>
+        function showResult(elementId, message, type = 'info') {
+            const element = document.getElementById(elementId);
+            element.style.display = 'block';
+            element.className = `result ${type}`;
+            element.textContent = message;
+        }
+
+        async function testBasicConnection() {
+            showResult('basicResult', '測試中...', 'loading');
+            try {
+                const url = `${SUPABASE_URL}/rest/v1/`;
+                const response = await fetch(url, {
+                    headers: {
+                        'apikey': SUPABASE_ANON_KEY,
+                        'Authorization': `Bearer ${SUPABASE_ANON_KEY}`
+                    }
+                });
+                
+                let message = `連線狀態: ${response.status} ${response.statusText}\n`;
+                message += `URL: ${url}\n`;
+                message += `API Key 長度: ${SUPABASE_ANON_KEY.length} 字元\n`;
+                
+                if (response.ok) {
+                    showResult('basicResult', message, 'success');
+                } else {
+                    const errorText = await response.text();
+                    message += `\n錯誤: ${errorText}`;
+                    showResult('basicResult', message, 'error');
+                }
+            } catch (error) {
+                showResult('basicResult', `連線失敗: ${error.message}\n${error.stack}`, 'error');
+            }
+        }
+
+        async function checkTables() {
+            showResult('tablesResult', '檢查中...', 'loading');
+            try {
+                // 嘗試查詢 information_schema（這可能需要特殊權限）
+                // 改為直接測試表是否存在
+                const tables = ['solar_panels', 'inverters', 'projects'];
+                let message = '檢查資料表:\n\n';
+                
+                for (const table of tables) {
+                    try {
+                        const response = await fetch(
+                            `${SUPABASE_URL}/rest/v1/${table}?limit=1`,
+                            {
+                                headers: {
+                                    'apikey': SUPABASE_ANON_KEY,
+                                    'Authorization': `Bearer ${SUPABASE_ANON_KEY}`
+                                }
+                            }
+                        );
+                        
+                        if (response.status === 200) {
+                            message += `✅ ${table}: 存在且可讀取\n`;
+                        } else if (response.status === 404) {
+                            message += `❌ ${table}: 不存在 (404)\n`;
+                        } else if (response.status === 406) {
+                            message += `⚠️ ${table}: 存在但格式不支援 (406)\n`;
+                        } else {
+                            const errorText = await response.text();
+                            message += `⚠️ ${table}: 狀態 ${response.status} - ${errorText}\n`;
+                        }
+                    } catch (error) {
+                        message += `❌ ${table}: 錯誤 - ${error.message}\n`;
+                    }
+                }
+                
+                showResult('tablesResult', message, 'info');
+            } catch (error) {
+                showResult('tablesResult', `檢查失敗: ${error.message}`, 'error');
+            }
+        }
+
+        async function testSolarPanels() {
+            showResult('solarResult', '測試中...', 'loading');
+            try {
+                const panels = await supabase.getSolarPanels();
+                
+                let message = `✅ 成功連接到 solar_panels 表\n\n`;
+                message += `資料筆數: ${panels ? panels.length : 0}\n\n`;
+                
+                if (panels && panels.length > 0) {
+                    message += `前 5 筆資料:\n`;
+                    message += JSON.stringify(panels.slice(0, 5), null, 2);
+                    
+                    // 顯示表格
+                    let tableHTML = '\n\n資料預覽:\n';
+                    tableHTML += 'ID | 名稱 | 製造商 | 功率(W) | Vmpp(V) | Impp(A)\n';
+                    tableHTML += '-'.repeat(60) + '\n';
+                    panels.slice(0, 5).forEach(p => {
+                        tableHTML += `${p.id} | ${p.name || 'N/A'} | ${p.manufacturer || 'N/A'} | ${p.pmod || 'N/A'} | ${p.vmpp || 'N/A'} | ${p.impp || 'N/A'}\n`;
+                    });
+                    message += tableHTML;
+                    
+                    showResult('solarResult', message, 'success');
+                } else {
+                    message += `⚠️ 資料表存在但沒有資料\n`;
+                    message += `請執行 supabase-equipment-schema.sql 插入範例資料`;
+                    showResult('solarResult', message, 'info');
+                }
+            } catch (error) {
+                let message = `❌ 讀取失敗: ${error.message}\n\n`;
+                message += `可能的原因:\n`;
+                message += `1. 資料表不存在 - 請執行 supabase-equipment-schema.sql\n`;
+                message += `2. RLS 政策未設定 - 檢查 Row Level Security 設定\n`;
+                message += `3. API Key 無效 - 檢查 supabase-config.js\n`;
+                message += `4. 網路連線問題\n\n`;
+                message += `完整錯誤:\n${error.stack}`;
+                showResult('solarResult', message, 'error');
+            }
+        }
+
+        async function testInverters() {
+            showResult('inverterResult', '測試中...', 'loading');
+            try {
+                const inverters = await supabase.getInverters();
+                
+                let message = `✅ 成功連接到 inverters 表\n\n`;
+                message += `資料筆數: ${inverters ? inverters.length : 0}\n\n`;
+                
+                if (inverters && inverters.length > 0) {
+                    message += `前 5 筆資料:\n`;
+                    message += JSON.stringify(inverters.slice(0, 5), null, 2);
+                    
+                    // 顯示表格
+                    let tableHTML = '\n\n資料預覽:\n';
+                    tableHTML += 'ID | 名稱 | 製造商 | 功率(kW) | 最大電壓(V)\n';
+                    tableHTML += '-'.repeat(60) + '\n';
+                    inverters.slice(0, 5).forEach(i => {
+                        tableHTML += `${i.id} | ${i.name || 'N/A'} | ${i.manufacturer || 'N/A'} | ${i.pinv_rated || 'N/A'} | ${i.vinv_max || 'N/A'}\n`;
+                    });
+                    message += tableHTML;
+                    
+                    showResult('inverterResult', message, 'success');
+                } else {
+                    message += `⚠️ 資料表存在但沒有資料\n`;
+                    message += `請執行 supabase-equipment-schema.sql 插入範例資料`;
+                    showResult('inverterResult', message, 'info');
+                }
+            } catch (error) {
+                let message = `❌ 讀取失敗: ${error.message}\n\n`;
+                message += `可能的原因:\n`;
+                message += `1. 資料表不存在 - 請執行 supabase-equipment-schema.sql\n`;
+                message += `2. RLS 政策未設定 - 檢查 Row Level Security 設定\n`;
+                message += `3. API Key 無效 - 檢查 supabase-config.js\n`;
+                message += `4. 網路連線問題\n\n`;
+                message += `完整錯誤:\n${error.stack}`;
+                showResult('inverterResult', message, 'error');
+            }
+        }
+
+        async function testDirectAPI() {
+            showResult('directResult', '測試中...', 'loading');
+            try {
+                const url = `${SUPABASE_URL}/rest/v1/solar_panels?limit=1`;
+                const headers = {
+                    'apikey': SUPABASE_ANON_KEY,
+                    'Authorization': `Bearer ${SUPABASE_ANON_KEY}`,
+                    'Content-Type': 'application/json'
+                };
+                
+                let message = `直接 API 測試\n\n`;
+                message += `URL: ${url}\n`;
+                message += `Headers: ${JSON.stringify(headers, null, 2)}\n\n`;
+                
+                const response = await fetch(url, { headers });
+                
+                message += `狀態: ${response.status} ${response.statusText}\n`;
+                message += `Headers: ${JSON.stringify(Object.fromEntries(response.headers), null, 2)}\n\n`;
+                
+                if (response.ok) {
+                    const data = await response.json();
+                    message += `✅ 成功!\n`;
+                    message += `回應資料: ${JSON.stringify(data, null, 2)}`;
+                    showResult('directResult', message, 'success');
+                } else {
+                    const errorText = await response.text();
+                    message += `❌ 失敗!\n`;
+                    message += `錯誤回應: ${errorText}`;
+                    showResult('directResult', message, 'error');
+                }
+            } catch (error) {
+                showResult('directResult', `直接 API 測試失敗: ${error.message}\n${error.stack}`, 'error');
+            }
+        }
+
+        async function runFullDiagnostic() {
+            showResult('fullResult', '開始完整診斷...\n\n', 'loading');
+            let report = '=== 完整診斷報告 ===\n\n';
+            
+            // 1. 基本連線
+            report += '1. 基本連線測試:\n';
+            try {
+                const url = `${SUPABASE_URL}/rest/v1/`;
+                const response = await fetch(url, {
+                    headers: {
+                        'apikey': SUPABASE_ANON_KEY,
+                        'Authorization': `Bearer ${SUPABASE_ANON_KEY}`
+                    }
+                });
+                report += `   狀態: ${response.status} ${response.statusText}\n`;
+                report += response.ok ? '   ✅ 連線正常\n\n' : '   ❌ 連線失敗\n\n';
+            } catch (error) {
+                report += `   ❌ 錯誤: ${error.message}\n\n`;
+            }
+            
+            // 2. 測試太陽能板
+            report += '2. 太陽能板資料表測試:\n';
+            try {
+                const panels = await supabase.getSolarPanels();
+                report += `   資料筆數: ${panels ? panels.length : 0}\n`;
+                if (panels && panels.length > 0) {
+                    report += `   ✅ 成功讀取資料\n`;
+                    report += `   範例: ${panels[0].name || 'N/A'}\n\n`;
+                } else {
+                    report += `   ⚠️ 表存在但無資料\n\n`;
+                }
+            } catch (error) {
+                report += `   ❌ 錯誤: ${error.message}\n\n`;
+            }
+            
+            // 3. 測試逆變器
+            report += '3. 逆變器資料表測試:\n';
+            try {
+                const inverters = await supabase.getInverters();
+                report += `   資料筆數: ${inverters ? inverters.length : 0}\n`;
+                if (inverters && inverters.length > 0) {
+                    report += `   ✅ 成功讀取資料\n`;
+                    report += `   範例: ${inverters[0].name || 'N/A'}\n\n`;
+                } else {
+                    report += `   ⚠️ 表存在但無資料\n\n`;
+                }
+            } catch (error) {
+                report += `   ❌ 錯誤: ${error.message}\n\n`;
+            }
+            
+            // 4. 配置檢查
+            report += '4. 配置檢查:\n';
+            report += `   URL: ${SUPABASE_URL}\n`;
+            report += `   API Key: ${SUPABASE_ANON_KEY.substring(0, 20)}...\n`;
+            report += `   API Key 長度: ${SUPABASE_ANON_KEY.length} 字元\n\n`;
+            
+            // 5. 建議
+            report += '5. 建議:\n';
+            report += `   - 如果資料表不存在，請執行 supabase-equipment-schema.sql\n`;
+            report += `   - 如果表存在但無資料，請檢查 INSERT 語句是否執行\n`;
+            report += `   - 如果出現權限錯誤，請檢查 RLS 政策設定\n`;
+            
+            showResult('fullResult', report, 'info');
+        }
+    </script>
+</body>
+</html>
+
